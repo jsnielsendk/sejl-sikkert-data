@@ -3,7 +3,7 @@
  * 429 and 5xx are retried with backoff, at most MAX_ATTEMPTS in total.
  */
 
-import { MAX_ATTEMPTS, REQUEST_PAUSE_MS, RETRY_DELAYS_MS } from '../config';
+import { MAX_ATTEMPTS, MAX_RETRY_AFTER_MS, REQUEST_PAUSE_MS, RETRY_DELAYS_MS } from '../config';
 
 export type DmiResponse = {
   status: number;
@@ -22,21 +22,25 @@ export function isRetryableStatus(status: number): boolean {
   return status === 429 || status >= 500;
 }
 
+function capRetry(ms: number): number {
+  return Math.min(ms, MAX_RETRY_AFTER_MS);
+}
+
 function retryDelayMs(attempt: number, headers?: { get(name: string): string | null }): number {
   const configured = RETRY_DELAYS_MS[attempt] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
   const header = headers?.get('retry-after');
   if (!header) {
-    return configured;
+    return capRetry(configured);
   }
   const seconds = Number(header);
   if (Number.isFinite(seconds) && seconds >= 0) {
-    return Math.max(configured, seconds * 1000);
+    return capRetry(Math.max(configured, seconds * 1000));
   }
   const when = Date.parse(header);
   if (Number.isNaN(when)) {
-    return configured;
+    return capRetry(configured);
   }
-  return Math.max(configured, when - Date.now());
+  return capRetry(Math.max(configured, when - Date.now()));
 }
 
 function decodeJson(body: Uint8Array): unknown | null {

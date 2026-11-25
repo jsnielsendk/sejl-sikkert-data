@@ -2,3 +2,5 @@ node_modules/
 out/
 *.partial/
 *.bak/
+actionlint
+actionlint.tar.gz

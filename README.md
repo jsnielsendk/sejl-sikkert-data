@@ -4,7 +4,15 @@
 
 Fliserne, omridset og gitteret står i `src/config.ts`: 20 fliser på ca. 100 km, der dækker Danmarks farvande. Hver flise bliver et 10×10-gitter pr. time. Den stærkeste vektor beholdes i hvert felt, og timerne er +0 til +48 i trin på 3 timer. Konverteringen er kopieret fra [sejl-sikkert-app](https://github.com/jsnielsendk/sejl-sikkert-app) ved commit `aa67b261981f151cc7869945ec0bcfb0f8917719`.
 
-Kaldet til DMI sker serielt med pause og med højst tre forsøg ved 429 og 5xx. Der bruges ingen API-nøgle. `out/` er lokalt output og skal ikke committes. `manifest.json` skrives kun, når alle fliser er lykkedes.
+Kaldet til DMI sker serielt med pause og med højst tre forsøg ved 429 og 5xx. Der bruges ingen API-nøgle. `out/` er lokalt output og skal ikke committes. `manifest.json` skrives kun, når alle fliser er lykkedes. Mappen får også `index.html` med kreditering og en `.nojekyll`.
+
+Pausen mellem kald er 2 sekunder. Sæt `DMI_PAUSE_MS` til et højere millisekundtal, hvis Actions ofte får 429. Hæv ikke antallet af forsøg. Et `Retry-After` fra DMI følges, men et enkelt ventetidspunkt er højst 120 sekunder.
+
+`src/app/checksums.json` er sha256 for de kopierede filer ved app-committen ovenfor. Testen fejler, hvis filerne ændres uden at manifestet opdateres. App-repoet er privat, så CI henter ikke kilderne og bruger ikke et token.
+
+Workflowet `build-deploy` kører `47 */3 * * *` og ved `workflow_dispatch`. Det lægger `out/` på GitHub Pages. En fejlet build deployer ikke, så den sidste gode udgave bliver liggende.
+
+`keepalive.yml` committer `keepalive.txt` den 1. i måneden. GitHub slår planlagte workflows fra efter 60 dage uden aktivitet i repoet, og den månedlige commit holder dem i gang. `contents: write` gælder kun det job.
 
 ## Licens
 

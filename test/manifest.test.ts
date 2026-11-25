@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -71,6 +71,12 @@ describe('manifest', () => {
     expect(manifest.license).toBe(DATA_LICENSE);
     expect(manifest.licenseUrl).toBe(DATA_LICENSE_URL);
     expect(manifestRaw).toContain(DATA_ATTRIBUTION);
+    const index = await readFile(path.join(outDir, 'index.html'), 'utf8');
+    expect(index).toContain(DATA_ATTRIBUTION);
+    expect(index).toContain(DATA_LICENSE_URL);
+    expect(index).toContain('manifest.json');
+    const nojekyll = await stat(path.join(outDir, '.nojekyll'));
+    expect(nojekyll.isFile()).toBe(true);
     expect(manifest.modelRuns.map((run) => run.model)).toContain('harmonie_dini_sf');
     expect(manifest.modelRuns.some((run) => run.model.startsWith('dkss_'))).toBe(true);
 
