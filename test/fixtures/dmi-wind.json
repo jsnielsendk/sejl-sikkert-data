@@ -1,0 +1,72 @@
+{
+  "type" : "Coverage",
+  "title" : {
+    "en" : "Grid Feature"
+  },
+  "domain" : {
+    "type" : "Domain",
+    "domainType" : "Grid",
+    "axes" : {
+      "t" : {
+        "values" : [ "2026-11-25T18:00:00.000Z" ]
+      },
+      "x" : {
+        "start" : 1160.4727910106028,
+        "stop" : 1166.4727910106028,
+        "num" : 4
+      },
+      "y" : {
+        "start" : 139.3197891800064,
+        "stop" : 145.3197891800064,
+        "num" : 4
+      }
+    },
+    "referencing" : [ {
+      "coordinates" : [ "t" ],
+      "system" : {
+        "type" : "TemporalRS",
+        "calendar" : "Gregorian"
+      }
+    } ]
+  },
+  "parameters" : {
+    "wind-10m-u" : {
+      "type" : "Parameter",
+      "description" : {
+        "en" : "10 metre U wind component"
+      },
+      "observedProperty" : {
+        "label" : {
+          "en" : "https://codes.ecmwf.int/grib/param-db/?id=165"
+        }
+      }
+    },
+    "wind-10m-v" : {
+      "type" : "Parameter",
+      "description" : {
+        "en" : "10 metre V wind component"
+      },
+      "observedProperty" : {
+        "label" : {
+          "en" : "https://codes.ecmwf.int/grib/param-db/?id=166"
+        }
+      }
+    }
+  },
+  "ranges" : {
+    "wind-10m-u" : {
+      "type" : "NdArray",
+      "dataType" : "float",
+      "axisNames" : [ "t", "y", "x" ],
+      "shape" : [ 1, 4, 4 ],
+      "values" : [ -2.2240372, -2.3548965, -2.4828262, -2.6830215, -2.5287247, -2.753334, -2.838295, -3.0463028, -2.9691544, -3.313881, -3.4173965, -3.6175919, -3.4056778, -3.5873184, -3.8216934, -4.277748 ]
+    },
+    "wind-10m-v" : {
+      "type" : "NdArray",
+      "dataType" : "float",
+      "axisNames" : [ "t", "y", "x" ],
+      "shape" : [ 1, 4, 4 ],
+      "values" : [ -1.4196205, -1.6188393, -1.7731361, -1.9782143, -1.6334877, -1.9284096, -2.0778236, -2.2575111, -1.8414955, -2.2096596, -2.378605, -2.4850502, -2.1383705, -2.3366127, -2.5534096, -2.755558 ]
+    }
+  }
+}
