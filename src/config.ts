@@ -35,8 +35,13 @@ export const DATA_ATTRIBUTION = 'Kilde: DMI (Danmarks Meteorologiske Institut), 
 export const DATA_LICENSE = 'CC BY 4.0';
 export const DATA_LICENSE_URL = 'https://creativecommons.org/licenses/by/4.0/';
 
-/** Pause between DMI requests. Retries use a separate backoff. */
+/**
+ * Pause between DMI requests. Retries use a separate backoff.
+ * Raise `DMI_PAUSE_MS` when 429s are frequent. Do not raise the attempt cap.
+ */
 export const REQUEST_PAUSE_MS = 2000;
+
+export const PAUSE_ENV = 'DMI_PAUSE_MS';
 
 /** One try plus retries. A 429 or 5xx is not attempted more than this. */
 export const MAX_ATTEMPTS = 3;
@@ -44,9 +49,24 @@ export const MAX_ATTEMPTS = 3;
 /**
  * Backoff after a 429 or 5xx. A short limit at DMI outlasts 1–2 seconds,
  * so the two waits are long enough that the third attempt can succeed.
- * A Retry-After header, when present, replaces the wait when it is longer.
+ * A Retry-After header, when present and longer, replaces the wait, but never past the cap.
  */
 export const RETRY_DELAYS_MS = [20_000, 40_000] as const;
+
+/** Upper bound for a single retry wait, including a large Retry-After. */
+export const MAX_RETRY_AFTER_MS = 120_000;
+
+export function pauseMsFromEnv(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env[PAUSE_ENV];
+  if (raw === undefined || raw.trim() === '') {
+    return REQUEST_PAUSE_MS;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`${PAUSE_ENV} must be a non-negative number of milliseconds.`);
+  }
+  return value;
+}
 
 export type Bbox = {
   west: number;

@@ -1,0 +1,30 @@
+name: keepalive
+
+on:
+  schedule:
+    - cron: '17 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Commit monthly keepalive
+        run: |
+          date -u +%Y-%m-%dT%H:%M:%SZ > keepalive.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add keepalive.txt
+          if git diff --cached --quiet; then
+            echo "keepalive.txt is unchanged"
+            exit 0
+          fi
+          git commit -m "keepalive: $(date -u +%Y-%m-%d)"
+          git push

@@ -3,7 +3,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { MAX_ATTEMPTS, REQUEST_PAUSE_MS, RETRY_DELAYS_MS, tilesFromConfig } from '../src/config';
+import {
+  MAX_ATTEMPTS,
+  MAX_RETRY_AFTER_MS,
+  pauseMsFromEnv,
+  REQUEST_PAUSE_MS,
+  RETRY_DELAYS_MS,
+  tilesFromConfig,
+} from '../src/config';
 import { createSerialClient, fetchJson, type FetchStats } from '../src/dmi/serial';
 import { buildDataset } from '../src/pipeline';
 import { coverageBody, jsonResponse } from './support';
@@ -17,6 +24,16 @@ afterEach(async () => {
 function stats(): FetchStats {
   return { calls: 0, saw429: false };
 }
+
+describe('request pause', () => {
+  it('reads DMI_PAUSE_MS and keeps the default when the variable is unset', () => {
+    expect(pauseMsFromEnv({})).toBe(REQUEST_PAUSE_MS);
+    expect(pauseMsFromEnv({ DMI_PAUSE_MS: '  ' })).toBe(REQUEST_PAUSE_MS);
+    expect(pauseMsFromEnv({ DMI_PAUSE_MS: '4000' })).toBe(4000);
+    expect(() => pauseMsFromEnv({ DMI_PAUSE_MS: 'no' })).toThrow(/DMI_PAUSE_MS/);
+    expect(MAX_ATTEMPTS).toBe(3);
+  });
+});
 
 describe('DMI retry', () => {
   it('retries a 429 with backoff and stops after three attempts', async () => {
@@ -65,6 +82,24 @@ describe('DMI retry', () => {
     });
     expect(afterHeader.status).toBe(200);
     expect(waited).toEqual([Math.max(RETRY_DELAYS_MS[0], 30_000)]);
+
+    const capped: number[] = [];
+    const huge = stats();
+    const afterHugeHeader = await fetchJson({
+      url: 'https://opendataapi.dmi.dk/retry-after-huge',
+      stats: huge,
+      sleep: async (ms) => {
+        capped.push(ms);
+      },
+      http: async () => ({
+        status: huge.calls === 1 ? 429 : 200,
+        body: new TextEncoder().encode('{}'),
+        headers: { get: (name) => (name.toLowerCase() === 'retry-after' ? '600' : null) },
+      }),
+    });
+    expect(afterHugeHeader.status).toBe(200);
+    expect(capped).toEqual([MAX_RETRY_AFTER_MS]);
+    expect(MAX_RETRY_AFTER_MS).toBe(120_000);
 
     const server = stats();
     const recovered = await fetchJson({

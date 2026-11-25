@@ -31,6 +31,7 @@ import {
   DKSS_NSBS_COLLECTION,
   FORMAT_VERSION,
   HARMONIE_COLLECTION,
+  pauseMsFromEnv,
   tilesFromConfig,
   type Tile,
 } from './config';
@@ -195,7 +196,7 @@ export async function buildDataset(options: BuildOptions): Promise<BuildReport> 
     http: options.http ?? defaultHttp,
     sleep: options.sleep ?? delay,
     stats,
-    pauseMs: options.pauseMs,
+    pauseMs: options.pauseMs ?? pauseMsFromEnv(),
   });
   const runs = new Map<string, ModelRun>();
   const resolved = path.resolve(options.outDir);
@@ -218,9 +219,15 @@ export async function buildDataset(options: BuildOptions): Promise<BuildReport> 
     }
     const manifest = manifestFor(written);
     const manifestJson = JSON.stringify(manifest);
+    const indexHtml = pagesIndexHtml();
     await writeFile(path.join(staging, 'manifest.json'), manifestJson);
+    await writeFile(path.join(staging, 'index.html'), indexHtml);
+    await writeFile(path.join(staging, '.nojekyll'), '');
     await publishStaging(staging, resolved, backup);
-    const bytes = written.reduce((sum, tile) => sum + tile.bytes, 0) + Buffer.byteLength(manifestJson);
+    const bytes =
+      written.reduce((sum, tile) => sum + tile.bytes, 0) +
+      Buffer.byteLength(manifestJson) +
+      Buffer.byteLength(indexHtml);
     return {
       calls: stats.calls,
       saw429: stats.saw429,
@@ -394,6 +401,22 @@ async function writeTile(
     model: forecast.model,
     modelRunAt: forecast.modelRunAt,
   };
+}
+
+function pagesIndexHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="utf-8">
+  <title>sejl-sikkert-data</title>
+</head>
+<body>
+  <h1>sejl-sikkert-data</h1>
+  <p>Kompakte vind- og strømfliser for danske farvande. Oversigten ligger i <a href="manifest.json">manifest.json</a>.</p>
+  <p>${DATA_ATTRIBUTION}. Dataene er under <a href="${DATA_LICENSE_URL}">${DATA_LICENSE}</a>.</p>
+</body>
+</html>
+`;
 }
 
 function manifestFor(tiles: readonly ManifestTile[]): Manifest {
