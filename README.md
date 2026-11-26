@@ -10,7 +10,7 @@ Pausen mellem kald er 2 sekunder. Sæt `DMI_PAUSE_MS` til et højere millisekund
 
 `src/app/checksums.json` har sha256 af appens originale filer ved committen ovenfor i `files`. `excerpts` er sha256 af kopierne i dette repo. Testen fejler, hvis en kopi ændres uden at `excerpts` opdateres. App-repoet er privat, så CI henter ikke kilderne og bruger ikke et token.
 
-Workflowet `build-deploy` kører `47 */3 * * *` og ved `workflow_dispatch`. Det lægger `out/` på GitHub Pages. En fejlet build deployer ikke, så den sidste gode udgave bliver liggende.
+Workflowet `build-deploy` kører `47 */3 * * *` og backup-linjen `17 1-23/3 * * *`, plus `workflow_dispatch`. Et manifest under to timer springer build og deploy over, så de ekstra linjer ikke kalder DMI. Er manifestet over seks timer, skrives `MANIFEST_STALE` som warning, og der bygges alligevel. En fejlet build deployer ikke, så den sidste gode udgave bliver liggende.
 
 `keepalive.yml` committer `keepalive.txt` den 1. i måneden. GitHub slår planlagte workflows fra efter 60 dage uden aktivitet i repoet, og den månedlige commit holder dem i gang. `contents: write` gælder kun det job.
 
