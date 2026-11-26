@@ -30,6 +30,7 @@ jobs:
           node-version: 22
       - name: Check published manifest age
         id: freshness
+        if: github.event_name == 'schedule'
         run: node --experimental-strip-types scripts/manifestFreshness.ts
       - if: steps.freshness.outputs.skip != 'true'
         run: npm ci
