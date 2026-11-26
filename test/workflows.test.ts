@@ -41,6 +41,19 @@ describe('GitHub workflows', () => {
     expect(text).toContain('name: github-pages');
     expect(text).toContain('needs: build');
     expect(text).not.toContain('contents: write');
+    expect(text).toContain('issues:');
+    expect(text).toContain('types: [opened]');
+    expect(text).toContain("github.event.issue.title == 'build'");
+    expect(text).toContain("github.event.issue.user.login == 'jsnielsendk'");
+    expect(text).toContain("github.event.issue.author_association == 'OWNER'");
+    expect(text).toContain('if: always()');
+    expect(text).not.toContain('pull_request_target');
+    const closeAt = text.indexOf('close-issue:');
+    const issuesWriteAt = text.indexOf('issues: write');
+    expect(closeAt).toBeGreaterThan(0);
+    expect(issuesWriteAt).toBeGreaterThan(closeAt);
+    expect(text.slice(0, closeAt)).not.toContain('issues: write');
+    expect(text.indexOf('issues: write', issuesWriteAt + 1)).toBe(-1);
   });
 
   it('keeps contents write on the monthly keepalive job only', () => {
