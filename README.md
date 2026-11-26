@@ -10,7 +10,7 @@ Tallene afrundes først, når flisen skrives: fart til 0,01 m/s, retning til 0,1
 
 Pausen mellem kald er 2 sekunder. Sæt `DMI_PAUSE_MS` til et højere millisekundtal, hvis Actions ofte får 429. Hæv ikke antallet af forsøg. Et `Retry-After` fra DMI følges, men et enkelt ventetidspunkt er højst 120 sekunder.
 
-`src/app/checksums.json` har sha256 af appens originale filer ved committen ovenfor i `files`. `excerpts` er sha256 af kopierne i dette repo. Testen fejler, hvis en kopi ændres uden at `excerpts` opdateres. App-repoet er privat, så CI henter ikke kilderne og bruger ikke et token.
+`src/app/checksums.json` har sha256 af appens originale filer ved `7dd41ec73ad5ed2e3b4738800a245dd2e37c890d` i `files`. `excerpts` er sha256 af kopierne i dette repo. Testen fejler, hvis en kopi ændres uden at `excerpts` opdateres. App-repoet er privat, så CI henter ikke kilderne og bruger ikke et token.
 
 Workflowet `build-deploy` kører `47 */3 * * *` og backup-linjen `17 1-23/3 * * *`, plus `workflow_dispatch`. Et manifest under to timer springer build og deploy over, så de ekstra linjer ikke kalder DMI. Er manifestet over seks timer, skrives `MANIFEST_STALE` som warning, og der bygges alligevel. En fejlet build deployer ikke, så den sidste gode udgave bliver liggende.
 
