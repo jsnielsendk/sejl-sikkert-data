@@ -1,5 +1,5 @@
 /**
- * Copied from jsnielsendk/sejl-sikkert-app@aa67b261981f151cc7869945ec0bcfb0f8917719
+ * Copied from jsnielsendk/sejl-sikkert-app@7dd41ec73ad5ed2e3b4738800a245dd2e37c890d
  * Source: src/features/weather/dmi/convert.ts
  * forecastFromCoverage is the path the app uses for a DMI cube: hours on the
  * 3-hour lattice from +0 through +48, then strongestBoxGrid at 10 by 10.
