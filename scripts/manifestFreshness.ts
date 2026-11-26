@@ -10,6 +10,18 @@ import { pathToFileURL } from 'node:url';
 
 export const PAGES_MANIFEST_URL = 'https://jsnielsendk.github.io/sejl-sikkert-data/manifest.json';
 
+/** Cache-bust the public manifest. GitHub Pages may keep the previous JSON. */
+export function publishedManifestUrl(input?: {
+  base?: string;
+  nowMs?: number;
+  runId?: string;
+}): string {
+  const url = new URL(input?.base ?? PAGES_MANIFEST_URL);
+  const runId = input?.runId?.trim() ?? '';
+  url.searchParams.set('t', runId !== '' ? runId : String(input?.nowMs ?? Date.now()));
+  return url.toString();
+}
+
 export const FRESH_MS = 2 * 60 * 60 * 1000;
 
 export const STALE_WARN_MS = 6 * 60 * 60 * 1000;
@@ -89,10 +101,17 @@ export async function reportManifestFreshness(input?: {
   log?: (line: string) => void;
 }): Promise<ManifestDecision> {
   const log = input?.log ?? ((line: string) => console.log(line));
-  const generatedAt = await readGeneratedAt(input?.url ?? PAGES_MANIFEST_URL);
+  const nowMs = input?.nowMs ?? Date.now();
+  const generatedAt = await readGeneratedAt(
+    input?.url ??
+      publishedManifestUrl({
+        nowMs,
+        runId: process.env.GITHUB_RUN_ID,
+      }),
+  );
   const decision = decideManifestFreshness({
     generatedAt,
-    nowMs: input?.nowMs ?? Date.now(),
+    nowMs,
   });
   log(decision.reason);
   if (decision.ageMs !== null) {

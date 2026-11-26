@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { decideManifestFreshness, FRESH_MS, STALE_WARN_MS } from '../scripts/manifestFreshness';
+import {
+  decideManifestFreshness,
+  FRESH_MS,
+  PAGES_MANIFEST_URL,
+  publishedManifestUrl,
+  STALE_WARN_MS,
+} from '../scripts/manifestFreshness';
 
 const NOW = Date.parse('2026-11-26T12:00:00Z');
 
@@ -42,6 +48,13 @@ describe('manifest freshness', () => {
     expect(decision.ageMs).toBe(-60_000);
     expect(decision.skip).toBe(false);
     expect(decision.warn).toBe(true);
+  });
+
+  it('adds a cache buster to the public manifest URL', () => {
+    expect(publishedManifestUrl({ runId: '45824996037' })).toBe(
+      `${PAGES_MANIFEST_URL}?t=45824996037`,
+    );
+    expect(publishedManifestUrl({ nowMs: NOW, runId: '  ' })).toBe(`${PAGES_MANIFEST_URL}?t=${NOW}`);
   });
 
   it('builds when the manifest cannot be read', () => {
