@@ -13,6 +13,10 @@ describe('GitHub workflows', () => {
   it('builds and deploys Pages on the 3-hour schedule without cancelling a run', () => {
     const text = workflow('build-deploy.yml');
     expect(text).toContain("cron: '47 */3 * * *'");
+    expect(text).toContain("cron: '17 1-23/3 * * *'");
+    expect(text).toContain('scripts/manifestFreshness.ts');
+    expect(text).toContain("steps.freshness.outputs.skip != 'true'");
+    expect(text).toContain("needs.build.outputs.skip != 'true'");
     expect(text).toContain('workflow_dispatch:');
     expect(text).toMatch(/permissions:[\s\S]*contents: read/);
     expect(text).toContain('pages: write');
