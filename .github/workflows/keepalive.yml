@@ -27,4 +27,5 @@ jobs:
             exit 0
           fi
           git commit -m "keepalive: $(date -u +%Y-%m-%d)"
+          # Push til main fejler, hvis main senere får branch protection.
           git push
