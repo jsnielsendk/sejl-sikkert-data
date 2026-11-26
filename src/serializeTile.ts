@@ -1,12 +1,20 @@
 /**
  * Rounding belongs only in this write step. The forecast is still chosen at full precision.
- * Wind speed is a whole m/s. Current speed stays at 0.01 m/s.
+ * Wind speed is a whole m/s, rounded up with Math.ceil so a threshold is never short.
+ * Current speed stays at 0.01 m/s.
  * Direction, for wind and current, is a whole degree inside [0, 360). 359.6 becomes 0, never 360.
  * Coordinates stay at 0.0001°. A wave cell, if one is ever written, uses whole degrees, 0.01 m and 0.1 s.
  * An empty cell stays {}. Numbers are emitted from toFixed text so JSON does not expand them.
  */
 
 import type { ForecastSample, NeutralForecast } from './app/types';
+
+function requireFinite(value: number, label: string): number {
+  if (!Number.isFinite(value)) {
+    throw new Error(`Tile ${label} is not finite (${String(value)}).`);
+  }
+  return value;
+}
 
 function trimZeros(text: string): string {
   if (!text.includes('.')) {
@@ -16,13 +24,18 @@ function trimZeros(text: string): string {
   return trimmed === '-0' ? '0' : trimmed;
 }
 
-function emitRounded(value: number, decimals: number): string {
-  return trimZeros(value.toFixed(decimals));
+function emitRounded(value: number, decimals: number, label: string): string {
+  return trimZeros(requireFinite(value, label).toFixed(decimals));
+}
+
+/** Whole m/s, never below the source speed. */
+function emitCeiled(value: number, label: string): string {
+  return String(Math.ceil(requireFinite(value, label)));
 }
 
 /** Whole degrees, then back into [0, 360). 359.6 becomes 0, never 360. */
 export function roundDirectionText(degrees: number): string {
-  const text = degrees.toFixed(0);
+  const text = requireFinite(degrees, 'direction').toFixed(0);
   if (text === '360' || text === '-0' || text === '-360') {
     return '0';
   }
@@ -34,17 +47,17 @@ function emitSample(sample: ForecastSample): string {
   const parts: string[] = [];
   if (sample.wind) {
     parts.push(
-      `"wind":{"directionDegrees":${roundDirectionText(sample.wind.directionDegrees)},"speed":${emitRounded(sample.wind.speed, 0)},"unit":${JSON.stringify(sample.wind.unit)}}`,
+      `"wind":{"directionDegrees":${roundDirectionText(sample.wind.directionDegrees)},"speed":${emitCeiled(sample.wind.speed, 'wind speed')},"unit":${JSON.stringify(sample.wind.unit)}}`,
     );
   }
   if (sample.current) {
     parts.push(
-      `"current":{"directionDegrees":${roundDirectionText(sample.current.directionDegrees)},"speed":${emitRounded(sample.current.speed, 2)},"unit":${JSON.stringify(sample.current.unit)}}`,
+      `"current":{"directionDegrees":${roundDirectionText(sample.current.directionDegrees)},"speed":${emitRounded(sample.current.speed, 2, 'current speed')},"unit":${JSON.stringify(sample.current.unit)}}`,
     );
   }
   if (sample.wave) {
     parts.push(
-      `"wave":{"directionDegrees":${roundDirectionText(sample.wave.directionDegrees)},"heightMeters":${emitRounded(sample.wave.heightMeters, 2)},"periodSeconds":${emitRounded(sample.wave.periodSeconds, 1)}}`,
+      `"wave":{"directionDegrees":${roundDirectionText(sample.wave.directionDegrees)},"heightMeters":${emitRounded(sample.wave.heightMeters, 2, 'wave height')},"periodSeconds":${emitRounded(sample.wave.periodSeconds, 1, 'wave period')}}`,
     );
   }
   return `{${parts.join(',')}}`;
@@ -57,7 +70,7 @@ function emitSamples(samples: readonly (readonly (readonly ForecastSample[])[])[
 }
 
 function emitAxis(values: readonly number[]): string {
-  return `[${values.map((value) => emitRounded(value, 4)).join(',')}]`;
+  return `[${values.map((value) => emitRounded(value, 4, 'coordinate')).join(',')}]`;
 }
 
 export function serializeTile(forecast: NeutralForecast): string {
@@ -78,7 +91,7 @@ export function serializeTile(forecast: NeutralForecast): string {
       ? `"geometry":{"kind":"points","points":[${forecast.geometry.points
           .map(
             (point) =>
-              `{"latitude":${emitRounded(point.latitude, 4)},"longitude":${emitRounded(point.longitude, 4)},"samples":[${point.samples
+              `{"latitude":${emitRounded(point.latitude, 4, 'coordinate')},"longitude":${emitRounded(point.longitude, 4, 'coordinate')},"samples":[${point.samples
                 .map((sample) => emitSample(sample))
                 .join(',')}]}`,
           )

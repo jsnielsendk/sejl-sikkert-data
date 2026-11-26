@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { parseCoverage } from '../src/app/coverage';
 import { forecastFromCoverage } from '../src/app/convert';
 import type { NeutralForecast } from '../src/app/types';
+import { assertNeutralForecast } from '../src/app/validate';
 import { DATA_ATTRIBUTION } from '../src/config';
 import { buildDataset } from '../src/pipeline';
 import { serializeTile } from '../src/serializeTile';
@@ -47,14 +48,14 @@ function directionError(actual: number, expected: number): number {
 }
 
 describe('tile serialization', () => {
-  it('rounds written numbers without moving them by more than half a step', () => {
+  it('rounds coordinates and current to the step and ceils wind speed', () => {
     const original = tile({
       kind: 'grid',
       latitudes: [55.123456789, 56.5],
       longitudes: [10.987654321],
       samples: [
         [
-          [{ wind: { directionDegrees: 10.4, speed: 1.6, unit: 'm/s' } }],
+          [{ wind: { directionDegrees: 10.4, speed: 1.1, unit: 'm/s' } }],
           [{ current: { directionDegrees: 200.6, speed: 0.226, unit: 'm/s' } }],
         ],
       ],
@@ -84,7 +85,7 @@ describe('tile serialization', () => {
             expect(directionError(vector.directionDegrees, source.directionDegrees)).toBeLessThanOrEqual(0.5);
             if (kind === 'wind') {
               expect(decimalPlaces(vector.speed)).toBe(0);
-              expect(Math.abs(vector.speed - source.speed)).toBeLessThanOrEqual(0.5);
+              expect(vector.speed).toBe(Math.ceil(source.speed));
             } else {
               expect(decimalPlaces(vector.speed)).toBeLessThanOrEqual(2);
               expect(Math.abs(vector.speed - source.speed)).toBeLessThanOrEqual(0.005);
@@ -95,7 +96,7 @@ describe('tile serialization', () => {
     });
     expect(written.geometry.latitudes[0]).toBe(55.1235);
     expect(written.geometry.longitudes[0]).toBe(10.9877);
-    expect(written.geometry.samples[0]?.[0]?.[0]?.wind?.speed).toBe(2);
+    expect(written.geometry.samples[0]?.[0]?.[0]?.wind?.speed).toBe(2); // Math.ceil(1.1)
     expect(written.geometry.samples[0]?.[0]?.[0]?.wind?.directionDegrees).toBe(10);
     expect(written.geometry.samples[0]?.[1]?.[0]?.current?.speed).toBe(0.23);
     expect(written.geometry.samples[0]?.[1]?.[0]?.current?.directionDegrees).toBe(201);
@@ -124,10 +125,44 @@ describe('tile serialization', () => {
       throw new Error('expected a grid');
     }
     expect(written.geometry.samples[0]?.[0]?.[0]?.wind?.directionDegrees).toBe(0);
-    expect(written.geometry.samples[0]?.[0]?.[0]?.wind?.speed).toBe(3);
+    expect(written.geometry.samples[0]?.[0]?.[0]?.wind?.speed).toBe(4);
     expect(written.geometry.samples[0]?.[0]?.[1]?.current?.directionDegrees).toBe(0);
     expect(written.geometry.samples[0]?.[1]?.[0]).toEqual({});
     expect(JSON.stringify(written.geometry.samples[0]?.[1]?.[0])).toBe('{}');
+  });
+
+  it('throws when a speed or coordinate is NaN or Infinity', () => {
+    const nanSpeed = tile({
+      kind: 'grid',
+      latitudes: [55],
+      longitudes: [10],
+      samples: [[[{ wind: { directionDegrees: 10, speed: Number.NaN, unit: 'm/s' } }]]],
+    });
+    const infiniteLatitude = tile({
+      kind: 'grid',
+      latitudes: [Number.POSITIVE_INFINITY],
+      longitudes: [10],
+      samples: [[[{ current: { directionDegrees: 20, speed: 0.2, unit: 'm/s' } }]]],
+    });
+    expect(() => serializeTile(nanSpeed)).toThrow(/not finite/);
+    expect(() => serializeTile(infiniteLatitude)).toThrow(/not finite/);
+  });
+
+  it('writes JSON the app excerpt accepts', () => {
+    const json = serializeTile(
+      tile({
+        kind: 'grid',
+        latitudes: [55.1, 55.2],
+        longitudes: [10.1],
+        samples: [
+          [
+            [{ wind: { directionDegrees: 10.4, speed: 1.6, unit: 'm/s' } }],
+            [{ current: { directionDegrees: 200.6, speed: 0.226, unit: 'm/s' } }],
+          ],
+        ],
+      }),
+    );
+    assertNeutralForecast(JSON.parse(json) as NeutralForecast);
   });
 
   it('keeps full precision until the file is written, and the manifest hashes those bytes', async () => {

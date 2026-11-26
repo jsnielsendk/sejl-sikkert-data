@@ -3,10 +3,20 @@ name: build-deploy
 on:
   schedule:
     # Primary slot. GitHub sometimes drops a scheduled run, so the second line
-    # is a backup half a step later. A fresh manifest skips DMI.
+    # is a backup half a step later. Both use the same model-run check.
     - cron: '47 */3 * * *'
     - cron: '17 1-23/3 * * *'
   workflow_dispatch:
+    inputs:
+      force:
+        description: Build even when the published model run is current
+        type: boolean
+        default: false
+  push:
+    # Only main may deploy to github-pages. The workflow file that runs is the
+    # one on the pushed commit, so a side branch cannot be the trigger.
+    branches: [main]
+    paths: ['trigger/build.txt']
 
 permissions:
   contents: read
@@ -25,13 +35,15 @@ jobs:
       skip: ${{ steps.freshness.outputs.skip }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check published manifest age
+      - name: Decide from the DMI model run
         id: freshness
-        if: github.event_name == 'schedule'
-        run: node --experimental-strip-types scripts/manifestFreshness.ts
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.force != 'true'
+        run: node --experimental-strip-types scripts/buildDecision.ts
       - if: steps.freshness.outputs.skip != 'true'
         run: npm ci
       - name: Build data
@@ -48,7 +60,7 @@ jobs:
 
   deploy:
     needs: build
-    if: needs.build.outputs.skip != 'true'
+    if: needs.build.result == 'success' && needs.build.outputs.skip != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
