@@ -6,6 +6,8 @@ Fliserne, omridset og gitteret står i `src/config.ts`: 20 fliser på ca. 100 km
 
 Kaldet til DMI sker serielt med pause og med højst tre forsøg ved 429 og 5xx. Der bruges ingen API-nøgle. `out/` er lokalt output og skal ikke committes. `manifest.json` skrives kun, når alle fliser er lykkedes. Mappen får også `index.html` med kreditering og en `.nojekyll`.
 
+Tallene afrundes først, når flisen skrives: fart til 0,01 m/s, retning til 0,1° i intervallet [0, 360), og koordinater til 0,0001°. Den stærkeste vektor vælges stadig på fuld præcision. Formatversionen er 1.
+
 Pausen mellem kald er 2 sekunder. Sæt `DMI_PAUSE_MS` til et højere millisekundtal, hvis Actions ofte får 429. Hæv ikke antallet af forsøg. Et `Retry-After` fra DMI følges, men et enkelt ventetidspunkt er højst 120 sekunder.
 
 `src/app/checksums.json` har sha256 af appens originale filer ved committen ovenfor i `files`. `excerpts` er sha256 af kopierne i dette repo. Testen fejler, hvis en kopi ændres uden at `excerpts` opdateres. App-repoet er privat, så CI henter ikke kilderne og bruger ikke et token.

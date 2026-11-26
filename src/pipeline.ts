@@ -43,6 +43,7 @@ import {
   type DmiHttp,
   type FetchStats,
 } from './dmi/serial';
+import { serializeTile } from './serializeTile';
 
 export type ManifestTile = {
   id: string;
@@ -387,7 +388,7 @@ async function writeTile(
   kind: 'wind' | 'current',
   forecast: NeutralForecast,
 ): Promise<ManifestTile> {
-  const json = JSON.stringify(forecast);
+  const json = serializeTile(forecast);
   const file = path.posix.join(kind, `${tile.id}.json`);
   await mkdir(path.join(staging, kind), { recursive: true });
   await writeFile(path.join(staging, kind, `${tile.id}.json`), json);
