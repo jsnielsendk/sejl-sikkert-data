@@ -12,7 +12,35 @@ Pausen mellem kald er 2 sekunder. Sæt `DMI_PAUSE_MS` til et højere millisekund
 
 `src/app/checksums.json` har sha256 af appens originale filer ved `7dd41ec73ad5ed2e3b4738800a245dd2e37c890d` i `files`. `excerpts` er sha256 af kopierne i dette repo. Testen fejler, hvis en kopi ændres uden at `excerpts` opdateres. App-repoet er privat, så CI henter ikke kilderne og bruger ikke et token.
 
-Workflowet `build-deploy` kører `47 */3 * * *` og backup-linjen `17 1-23/3 * * *`, plus `workflow_dispatch`. Kun en planlagt kørsel springer build og deploy over, og kun når manifestets alder er fra 0 til under to timer. `workflow_dispatch` og `push` bygger altid. Et tidsstempel i fremtiden bygger også, med warning `MANIFEST_FUTURE`. Er manifestet over seks timer, skrives `MANIFEST_STALE`, og der bygges alligevel. En fejlet build deployer ikke, så den sidste gode udgave bliver liggende.
+Workflowet `build-deploy` kører `47 */3 * * *` og backup-linjen `17 1-23/3 * * *`, plus `workflow_dispatch` og et push til `main` der kun ændrer `trigger/build.txt`. Før build sammenlignes DMI's seneste modelkørsel med manifestets `modelRuns`. Der bygges, hvis mindst én kørsel er nyere, hvis manifestet er mindst 12 timer gammelt, hvis det ikke kan læses, eller hvis tidsstemplet ligger i fremtiden (`MANIFEST_FUTURE`). Samme kørsel og et yngre manifest springes over. Kan DMI ikke svare, skrives en advarsel, og der bygges kun når alderen er mindst 2 timer. Over seks timer skrives `MANIFEST_STALE`. `workflow_dispatch` med input `force=true` springer tjekket over. Checkout er `ref: main`, så trigger-committen ikke kan skifte koden. En fejlet build deployer ikke: deploy-jobbet kræver `needs.build.result == 'success'`, og den sidste gode Pages-udgave bliver liggende.
+
+En branch som `trigger/build` kan ikke bruges. Miljøet `github-pages` tillader kun branchen `main`, og et push kører workflow-filen fra det commit der pushes. En sidebranch kunne derfor både blive afvist ved deploy og køre en anden workflow-fil. Ulempen ved filen på `main` er, at hvert kald er et commit på `main`, at branch protection kan blokere det, og at merge af det commit der tilføjer filen selv starter ét build.
+
+## CoS-kald
+
+Cursor-agenten har `contents:write` og ikke `actions:write`. `workflow_dispatch` svarer derfor 403. Kaldet der starter buildet er opdatering af triggerfilen på `main`:
+
+```text
+create_or_update_file
+  owner: jsnielsendk
+  repo: sejl-sikkert-data
+  branch: main
+  path: trigger/build.txt
+  message: trigger: build DMI tiles
+  content: <ny UTC-tidsstempel-linje, fx 2026-11-26T18:00:00Z>
+  sha: <blob-sha for den nuværende fil; påkrævet når filen findes>
+```
+
+`sha` hentes med GET `https://api.github.com/repos/jsnielsendk/sejl-sikkert-data/contents/trigger/build.txt?ref=main` (feltet `sha`). Uden `sha` afviser GitHub opdateringen. Indholdet skal være nyt, ellers er der intet commit og intet push.
+
+## Seneste modelkørsel
+
+Billigste metadata-kald er instances-listen. Samlingens metadata har forecast-udstrækning, ikke modelkørsel-id. `limit=1` gør ikke dokumentet mindre. Målt 2026-11-26: HARMONIE 320372 bytes, DKSS NSBS 190781 bytes.
+
+- Vind: `GET https://opendataapi.dmi.dk/v1/forecastedr/collections/harmonie_dini_sf/instances`
+- Strøm: `GET https://opendataapi.dmi.dk/v1/forecastedr/collections/dkss_nsbs/instances`
+- Felt: `instances[].id`. Tag den største tid, ikke blindt første række. Eksempel: `{"instances":[{"id":"2026-11-26T150000Z"},{"id":"2026-11-26T120000Z"}]}` bliver `2026-11-26T15:00:00.000Z`.
+- Manifest: `GET https://jsnielsendk.github.io/sejl-sikkert-data/manifest.json?t=<GITHUB_RUN_ID>` feltet `modelRuns[].modelRunAt` for samme `modelRuns[].model`. Nyere DMI-tid bygger.
 
 `keepalive.yml` committer `keepalive.txt` den 1. i måneden. GitHub slår planlagte workflows fra efter 60 dage uden aktivitet i repoet, og den månedlige commit holder dem i gang. `contents: write` gælder kun det job.
 

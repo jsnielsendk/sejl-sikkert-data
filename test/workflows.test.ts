@@ -14,13 +14,17 @@ describe('GitHub workflows', () => {
     const text = workflow('build-deploy.yml');
     expect(text).toContain("cron: '47 */3 * * *'");
     expect(text).toContain("cron: '17 1-23/3 * * *'");
-    expect(text).toContain('scripts/manifestFreshness.ts');
-    expect(text).toContain("if: github.event_name == 'schedule'");
-    expect(readFileSync(path.join(root, 'scripts', 'manifestFreshness.ts'), 'utf8')).toContain(
+    expect(text).toContain('scripts/buildDecision.ts');
+    expect(text).toContain('trigger/build.txt');
+    expect(text).toContain('ref: main');
+    expect(text).toContain("github.event.inputs.force != 'true'");
+    expect(text).toContain('force:');
+    expect(readFileSync(path.join(root, 'scripts', 'buildDecision.ts'), 'utf8')).toContain(
       'GITHUB_RUN_ID',
     );
     expect(text).toContain("steps.freshness.outputs.skip != 'true'");
-    expect(text).toContain("needs.build.outputs.skip != 'true'");
+    expect(text).toContain("needs.build.result == 'success' && needs.build.outputs.skip != 'true'");
+    expect(text).not.toContain('continue-on-error');
     expect(text).toContain('workflow_dispatch:');
     expect(text).toMatch(/permissions:[\s\S]*contents: read/);
     expect(text).toContain('pages: write');
