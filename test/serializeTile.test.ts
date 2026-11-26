@@ -54,8 +54,8 @@ describe('tile serialization', () => {
       longitudes: [10.987654321],
       samples: [
         [
-          [{ wind: { directionDegrees: 10.04, speed: 1.23456, unit: 'm/s' } }],
-          [{ current: { directionDegrees: 200.24, speed: 0.226, unit: 'm/s' } }],
+          [{ wind: { directionDegrees: 10.4, speed: 1.6, unit: 'm/s' } }],
+          [{ current: { directionDegrees: 200.6, speed: 0.226, unit: 'm/s' } }],
         ],
       ],
     });
@@ -80,19 +80,28 @@ describe('tile serialization', () => {
             if (!vector || !source) {
               continue;
             }
-            expect(decimalPlaces(vector.speed)).toBeLessThanOrEqual(2);
-            expect(decimalPlaces(vector.directionDegrees)).toBeLessThanOrEqual(1);
-            expect(Math.abs(vector.speed - source.speed)).toBeLessThanOrEqual(0.005);
-            expect(directionError(vector.directionDegrees, source.directionDegrees)).toBeLessThanOrEqual(0.05);
+            expect(decimalPlaces(vector.directionDegrees)).toBe(0);
+            expect(directionError(vector.directionDegrees, source.directionDegrees)).toBeLessThanOrEqual(0.5);
+            if (kind === 'wind') {
+              expect(decimalPlaces(vector.speed)).toBe(0);
+              expect(Math.abs(vector.speed - source.speed)).toBeLessThanOrEqual(0.5);
+            } else {
+              expect(decimalPlaces(vector.speed)).toBeLessThanOrEqual(2);
+              expect(Math.abs(vector.speed - source.speed)).toBeLessThanOrEqual(0.005);
+            }
           }
         });
       });
     });
     expect(written.geometry.latitudes[0]).toBe(55.1235);
     expect(written.geometry.longitudes[0]).toBe(10.9877);
+    expect(written.geometry.samples[0]?.[0]?.[0]?.wind?.speed).toBe(2);
+    expect(written.geometry.samples[0]?.[0]?.[0]?.wind?.directionDegrees).toBe(10);
+    expect(written.geometry.samples[0]?.[1]?.[0]?.current?.speed).toBe(0.23);
+    expect(written.geometry.samples[0]?.[1]?.[0]?.current?.directionDegrees).toBe(201);
   });
 
-  it('writes direction 359.96 as 0 and leaves an empty current cell empty', () => {
+  it('writes direction 359.6 as 0 for wind and current and leaves an empty cell empty', () => {
     const json = serializeTile(
       tile({
         kind: 'grid',
@@ -101,9 +110,10 @@ describe('tile serialization', () => {
         samples: [
           [
             [
-              { wind: { directionDegrees: 359.96, speed: 3.004, unit: 'm/s' } },
-              {},
+              { wind: { directionDegrees: 359.6, speed: 3.4, unit: 'm/s' } },
+              { current: { directionDegrees: 359.6, speed: 0.226, unit: 'm/s' } },
             ],
+            [{}, {}],
           ],
         ],
       }),
@@ -114,8 +124,10 @@ describe('tile serialization', () => {
       throw new Error('expected a grid');
     }
     expect(written.geometry.samples[0]?.[0]?.[0]?.wind?.directionDegrees).toBe(0);
-    expect(written.geometry.samples[0]?.[0]?.[1]).toEqual({});
-    expect(JSON.stringify(written.geometry.samples[0]?.[0]?.[1])).toBe('{}');
+    expect(written.geometry.samples[0]?.[0]?.[0]?.wind?.speed).toBe(3);
+    expect(written.geometry.samples[0]?.[0]?.[1]?.current?.directionDegrees).toBe(0);
+    expect(written.geometry.samples[0]?.[1]?.[0]).toEqual({});
+    expect(JSON.stringify(written.geometry.samples[0]?.[1]?.[0])).toBe('{}');
   });
 
   it('keeps full precision until the file is written, and the manifest hashes those bytes', async () => {
@@ -156,7 +168,7 @@ describe('tile serialization', () => {
       throw new Error('expected a written grid');
     }
     const writtenSpeeds = written.geometry.samples.flat(2).flatMap((cell) => (cell.wind ? [cell.wind.speed] : []));
-    expect(Math.max(...writtenSpeeds)).toBe(1.99);
+    expect(Math.max(...writtenSpeeds)).toBe(2);
 
     const outDir = await mkdtemp(path.join(tmpdir(), 'sejl-round-'));
     dirs.push(outDir);

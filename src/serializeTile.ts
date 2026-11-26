@@ -1,8 +1,9 @@
 /**
  * Rounding belongs only in this write step. The forecast is still chosen at full precision.
- * Speed is stored to 0.01 m/s, direction to 0.1° inside [0, 360), and coordinates to 0.0001°.
- * A wave cell, if one is ever written, uses 0.01 m and 0.1 s. An empty cell stays {}.
- * Numbers are emitted from toFixed text so a value such as 200.2 is not expanded by JSON.stringify.
+ * Wind speed is a whole m/s. Current speed stays at 0.01 m/s.
+ * Direction, for wind and current, is a whole degree inside [0, 360). 359.6 becomes 0, never 360.
+ * Coordinates stay at 0.0001°. A wave cell, if one is ever written, uses whole degrees, 0.01 m and 0.1 s.
+ * An empty cell stays {}. Numbers are emitted from toFixed text so JSON does not expand them.
  */
 
 import type { ForecastSample, NeutralForecast } from './app/types';
@@ -19,25 +20,21 @@ function emitRounded(value: number, decimals: number): string {
   return trimZeros(value.toFixed(decimals));
 }
 
-/** One decimal, then back into [0, 360). 359.96 becomes 0, never 360. */
+/** Whole degrees, then back into [0, 360). 359.6 becomes 0, never 360. */
 export function roundDirectionText(degrees: number): string {
-  const text = degrees.toFixed(1);
-  if (text === '360.0' || text === '-0.0' || text === '-360.0') {
+  const text = degrees.toFixed(0);
+  if (text === '360' || text === '-0' || text === '-360') {
     return '0';
   }
-  const numeric = Number(text);
-  const turns = ((numeric % 360) + 360) % 360;
-  if (turns === 0) {
-    return '0';
-  }
-  return trimZeros(turns.toFixed(1));
+  const turns = ((Number(text) % 360) + 360) % 360;
+  return turns === 0 ? '0' : String(turns);
 }
 
 function emitSample(sample: ForecastSample): string {
   const parts: string[] = [];
   if (sample.wind) {
     parts.push(
-      `"wind":{"directionDegrees":${roundDirectionText(sample.wind.directionDegrees)},"speed":${emitRounded(sample.wind.speed, 2)},"unit":${JSON.stringify(sample.wind.unit)}}`,
+      `"wind":{"directionDegrees":${roundDirectionText(sample.wind.directionDegrees)},"speed":${emitRounded(sample.wind.speed, 0)},"unit":${JSON.stringify(sample.wind.unit)}}`,
     );
   }
   if (sample.current) {
