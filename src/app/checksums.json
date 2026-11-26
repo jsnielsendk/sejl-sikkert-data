@@ -1,9 +1,9 @@
 {
   "appRepo": "jsnielsendk/sejl-sikkert-app",
-  "appCommit": "aa67b261981f151cc7869945ec0bcfb0f8917719",
+  "appCommit": "7dd41ec73ad5ed2e3b4738800a245dd2e37c890d",
   "note": "files are sha256 of the original app sources at appCommit. excerpts are sha256 of the copies in this repo, which add a copy header and rewrite imports.",
   "files": {
-    "client.ts": "13aba5edc668145c93093ea937ea5297394d7e235b836593ff936198636e55dd",
+    "client.ts": "e5469b64bcb488dbf8e5f63ca13adaa9d93732a337032e4910937755c6174c2f",
     "convert.ts": "33660b2ae068b546d03fffadc86f735ce5f3afc93b0662ffd78233f31e1407eb",
     "coverage.ts": "289dbb3fc5260eec05b5f55ae828af0db2925035a8a7bcc81a59bcaf4916b82c",
     "lambert.ts": "4b87dd40aeac939e60576b1b0cd898d756f4aa623a305e641363e1d989e2617c",

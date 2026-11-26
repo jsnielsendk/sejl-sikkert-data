@@ -5,7 +5,8 @@
  * Four rows by five columns give 20 tiles of about 100 km.
  */
 
-export const APP_COMMIT = 'aa67b261981f151cc7869945ec0bcfb0f8917719';
+/** App commit whose original sources are hashed in src/app/checksums.json. */
+export const APP_COMMIT = '7dd41ec73ad5ed2e3b4738800a245dd2e37c890d';
 
 export const DENMARK_BOUNDS = {
   west: 7.5,

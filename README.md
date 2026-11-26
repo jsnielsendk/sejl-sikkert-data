@@ -6,11 +6,13 @@ Fliserne, omridset og gitteret står i `src/config.ts`: 20 fliser på ca. 100 km
 
 Kaldet til DMI sker serielt med pause og med højst tre forsøg ved 429 og 5xx. Der bruges ingen API-nøgle. `out/` er lokalt output og skal ikke committes. `manifest.json` skrives kun, når alle fliser er lykkedes. Mappen får også `index.html` med kreditering og en `.nojekyll`.
 
+Tallene afrundes først, når flisen skrives: vindstyrke til hele m/s, strømstyrke til 0,01 m/s, retning til hele grader i [0, 360), og koordinater til 0,0001°. 359,6° skrives som 0, ikke 360. Den stærkeste vektor vælges stadig på fuld præcision. Formatversionen er 1.
+
 Pausen mellem kald er 2 sekunder. Sæt `DMI_PAUSE_MS` til et højere millisekundtal, hvis Actions ofte får 429. Hæv ikke antallet af forsøg. Et `Retry-After` fra DMI følges, men et enkelt ventetidspunkt er højst 120 sekunder.
 
-`src/app/checksums.json` har sha256 af appens originale filer ved committen ovenfor i `files`. `excerpts` er sha256 af kopierne i dette repo. Testen fejler, hvis en kopi ændres uden at `excerpts` opdateres. App-repoet er privat, så CI henter ikke kilderne og bruger ikke et token.
+`src/app/checksums.json` har sha256 af appens originale filer ved `7dd41ec73ad5ed2e3b4738800a245dd2e37c890d` i `files`. `excerpts` er sha256 af kopierne i dette repo. Testen fejler, hvis en kopi ændres uden at `excerpts` opdateres. App-repoet er privat, så CI henter ikke kilderne og bruger ikke et token.
 
-Workflowet `build-deploy` kører `47 */3 * * *` og backup-linjen `17 1-23/3 * * *`, plus `workflow_dispatch`. Et manifest under to timer springer build og deploy over, så de ekstra linjer ikke kalder DMI. Er manifestet over seks timer, skrives `MANIFEST_STALE` som warning, og der bygges alligevel. En fejlet build deployer ikke, så den sidste gode udgave bliver liggende.
+Workflowet `build-deploy` kører `47 */3 * * *` og backup-linjen `17 1-23/3 * * *`, plus `workflow_dispatch`. Kun en planlagt kørsel springer build og deploy over, og kun når manifestets alder er fra 0 til under to timer. `workflow_dispatch` og `push` bygger altid. Et tidsstempel i fremtiden bygger også, med warning `MANIFEST_FUTURE`. Er manifestet over seks timer, skrives `MANIFEST_STALE`, og der bygges alligevel. En fejlet build deployer ikke, så den sidste gode udgave bliver liggende.
 
 `keepalive.yml` committer `keepalive.txt` den 1. i måneden. GitHub slår planlagte workflows fra efter 60 dage uden aktivitet i repoet, og den månedlige commit holder dem i gang. `contents: write` gælder kun det job.
 

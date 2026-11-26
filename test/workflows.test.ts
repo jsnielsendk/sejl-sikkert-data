@@ -15,6 +15,10 @@ describe('GitHub workflows', () => {
     expect(text).toContain("cron: '47 */3 * * *'");
     expect(text).toContain("cron: '17 1-23/3 * * *'");
     expect(text).toContain('scripts/manifestFreshness.ts');
+    expect(text).toContain("if: github.event_name == 'schedule'");
+    expect(readFileSync(path.join(root, 'scripts', 'manifestFreshness.ts'), 'utf8')).toContain(
+      'GITHUB_RUN_ID',
+    );
     expect(text).toContain("steps.freshness.outputs.skip != 'true'");
     expect(text).toContain("needs.build.outputs.skip != 'true'");
     expect(text).toContain('workflow_dispatch:');
