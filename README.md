@@ -6,7 +6,7 @@ Fliserne, omridset og gitteret står i `src/config.ts`: 20 fliser på ca. 100 km
 
 Kaldet til DMI sker serielt med pause og med højst tre forsøg ved 429 og 5xx. Der bruges ingen API-nøgle. `out/` er lokalt output og skal ikke committes. `manifest.json` skrives kun, når alle fliser er lykkedes. Mappen får også `index.html` med kreditering og en `.nojekyll`.
 
-Tallene afrundes først, når flisen skrives: vindstyrke til hele m/s, strømstyrke til 0,01 m/s, retning til hele grader i [0, 360), og koordinater til 0,0001°. 359,6° skrives som 0, ikke 360. Den stærkeste vektor vælges stadig på fuld præcision. Formatversionen er 1.
+Tallene afrundes først, når flisen skrives: vindstyrke til hele m/s, strømstyrke til 0,01 m/s, retning til hele grader i [0, 360), og koordinater til 0,0001°. 359,6° skrives som 0, ikke 360. Den stærkeste vektor vælges stadig på fuld præcision. Formatversionen er 1. Er fart, retning eller en koordinat ikke et endeligt tal, kaster skrivningen, buildet fejler, og deploy kører ikke.
 
 Pausen mellem kald er 2 sekunder. Sæt `DMI_PAUSE_MS` til et højere millisekundtal, hvis Actions ofte får 429. Hæv ikke antallet af forsøg. Et `Retry-After` fra DMI følges, men et enkelt ventetidspunkt er højst 120 sekunder.
 

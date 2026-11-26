@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { parseCoverage } from '../src/app/coverage';
 import { forecastFromCoverage } from '../src/app/convert';
 import type { NeutralForecast } from '../src/app/types';
+import { assertNeutralForecast } from '../src/app/validate';
 import { DATA_ATTRIBUTION } from '../src/config';
 import { buildDataset } from '../src/pipeline';
 import { serializeTile } from '../src/serializeTile';
@@ -128,6 +129,40 @@ describe('tile serialization', () => {
     expect(written.geometry.samples[0]?.[0]?.[1]?.current?.directionDegrees).toBe(0);
     expect(written.geometry.samples[0]?.[1]?.[0]).toEqual({});
     expect(JSON.stringify(written.geometry.samples[0]?.[1]?.[0])).toBe('{}');
+  });
+
+  it('throws when a speed or coordinate is NaN or Infinity', () => {
+    const nanSpeed = tile({
+      kind: 'grid',
+      latitudes: [55],
+      longitudes: [10],
+      samples: [[[{ wind: { directionDegrees: 10, speed: Number.NaN, unit: 'm/s' } }]]],
+    });
+    const infiniteLatitude = tile({
+      kind: 'grid',
+      latitudes: [Number.POSITIVE_INFINITY],
+      longitudes: [10],
+      samples: [[[{ current: { directionDegrees: 20, speed: 0.2, unit: 'm/s' } }]]],
+    });
+    expect(() => serializeTile(nanSpeed)).toThrow(/not finite/);
+    expect(() => serializeTile(infiniteLatitude)).toThrow(/not finite/);
+  });
+
+  it('writes JSON the app excerpt accepts', () => {
+    const json = serializeTile(
+      tile({
+        kind: 'grid',
+        latitudes: [55.1, 55.2],
+        longitudes: [10.1],
+        samples: [
+          [
+            [{ wind: { directionDegrees: 10.4, speed: 1.6, unit: 'm/s' } }],
+            [{ current: { directionDegrees: 200.6, speed: 0.226, unit: 'm/s' } }],
+          ],
+        ],
+      }),
+    );
+    assertNeutralForecast(JSON.parse(json) as NeutralForecast);
   });
 
   it('keeps full precision until the file is written, and the manifest hashes those bytes', async () => {
