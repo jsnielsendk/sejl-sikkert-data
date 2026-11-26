@@ -14,6 +14,7 @@ describe('manifest freshness', () => {
     expect(decision.skip).toBe(true);
     expect(decision.warn).toBe(false);
     expect(decision.ageMs).toBe(30 * 60 * 1000);
+    expect(decideManifestFreshness({ generatedAt: at(0), nowMs: NOW }).skip).toBe(true);
   });
 
   it('builds again once the manifest is two hours old, and warns after six', () => {
@@ -31,6 +32,16 @@ describe('manifest freshness', () => {
 
     const exact = decideManifestFreshness({ generatedAt: at(STALE_WARN_MS), nowMs: NOW });
     expect(exact.warn).toBe(false);
+  });
+
+  it('builds and warns when generatedAt is in the future', () => {
+    const decision = decideManifestFreshness({
+      generatedAt: new Date(NOW + 60_000).toISOString(),
+      nowMs: NOW,
+    });
+    expect(decision.ageMs).toBe(-60_000);
+    expect(decision.skip).toBe(false);
+    expect(decision.warn).toBe(true);
   });
 
   it('builds when the manifest cannot be read', () => {

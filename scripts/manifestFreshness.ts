@@ -42,6 +42,14 @@ export function decideManifestFreshness(input: {
     };
   }
   const ageMs = input.nowMs - generated;
+  if (ageMs < 0) {
+    return {
+      skip: false,
+      warn: true,
+      ageMs,
+      reason: 'manifest generatedAt is in the future; building',
+    };
+  }
   if (ageMs < freshMs) {
     return {
       skip: true,
@@ -91,8 +99,12 @@ export async function reportManifestFreshness(input?: {
     log(`manifest ageMs=${decision.ageMs} generatedAt=${generatedAt}`);
   }
   if (decision.warn && generatedAt && decision.ageMs !== null) {
-    const hours = (decision.ageMs / (60 * 60 * 1000)).toFixed(1);
-    log(`::warning::MANIFEST_STALE generatedAt=${generatedAt} ageHours=${hours}`);
+    if (decision.ageMs < 0) {
+      log(`::warning::MANIFEST_FUTURE generatedAt=${generatedAt}`);
+    } else {
+      const hours = (decision.ageMs / (60 * 60 * 1000)).toFixed(1);
+      log(`::warning::MANIFEST_STALE generatedAt=${generatedAt} ageHours=${hours}`);
+    }
   }
   const outputPath = input?.outputPath ?? process.env.GITHUB_OUTPUT;
   if (outputPath) {
