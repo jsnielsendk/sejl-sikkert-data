@@ -1,6 +1,7 @@
 /**
  * Rounding belongs only in this write step. The forecast is still chosen at full precision.
- * Wind speed is a whole m/s. Current speed stays at 0.01 m/s.
+ * Wind speed is a whole m/s, rounded up with Math.ceil so a threshold is never short.
+ * Current speed stays at 0.01 m/s.
  * Direction, for wind and current, is a whole degree inside [0, 360). 359.6 becomes 0, never 360.
  * Coordinates stay at 0.0001°. A wave cell, if one is ever written, uses whole degrees, 0.01 m and 0.1 s.
  * An empty cell stays {}. Numbers are emitted from toFixed text so JSON does not expand them.
@@ -27,6 +28,11 @@ function emitRounded(value: number, decimals: number, label: string): string {
   return trimZeros(requireFinite(value, label).toFixed(decimals));
 }
 
+/** Whole m/s, never below the source speed. */
+function emitCeiled(value: number, label: string): string {
+  return String(Math.ceil(requireFinite(value, label)));
+}
+
 /** Whole degrees, then back into [0, 360). 359.6 becomes 0, never 360. */
 export function roundDirectionText(degrees: number): string {
   const text = requireFinite(degrees, 'direction').toFixed(0);
@@ -41,7 +47,7 @@ function emitSample(sample: ForecastSample): string {
   const parts: string[] = [];
   if (sample.wind) {
     parts.push(
-      `"wind":{"directionDegrees":${roundDirectionText(sample.wind.directionDegrees)},"speed":${emitRounded(sample.wind.speed, 0, 'wind speed')},"unit":${JSON.stringify(sample.wind.unit)}}`,
+      `"wind":{"directionDegrees":${roundDirectionText(sample.wind.directionDegrees)},"speed":${emitCeiled(sample.wind.speed, 'wind speed')},"unit":${JSON.stringify(sample.wind.unit)}}`,
     );
   }
   if (sample.current) {
