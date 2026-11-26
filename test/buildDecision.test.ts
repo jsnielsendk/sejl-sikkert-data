@@ -65,12 +65,27 @@ describe('decideBuild', () => {
     expect(decision.lines.join('\n')).toContain('MANIFEST_STALE');
   });
 
-  it('falls back to a 2 hour age check when DMI does not answer', () => {
-    const fresh = decideBuild({
+  it('builds when one model is newer even if the other does not answer', () => {
+    const decision = decideBuild({
       nowMs: NOW,
       generatedAt: new Date(NOW - HOUR).toISOString(),
       manifestModelRuns: runs('2026-11-26T12:00:00.000Z', '2026-11-26T12:00:00.000Z'),
       dmi: dmi(null, '2026-11-26T15:00:00.000Z'),
+    });
+    expect(decision.build).toBe(true);
+    expect(decision.warnDmi).toBe(true);
+    expect(decision.reason).toBe('BUILD newer model run');
+    expect(decision.lines.join('\n')).toContain(
+      '::warning::DMI model run unavailable for one model; building on the newer run',
+    );
+  });
+
+  it('falls back to a 2 hour age check when DMI does not show a newer run', () => {
+    const fresh = decideBuild({
+      nowMs: NOW,
+      generatedAt: new Date(NOW - HOUR).toISOString(),
+      manifestModelRuns: runs('2026-11-26T15:00:00.000Z', '2026-11-26T12:00:00.000Z'),
+      dmi: dmi(null, '2026-11-26T12:00:00.000Z'),
     });
     expect(fresh.build).toBe(false);
     expect(fresh.warnDmi).toBe(true);
@@ -121,15 +136,26 @@ describe('decideBuild', () => {
 });
 
 describe('latestInstanceRun', () => {
-  it('parses the newest instances[].id and ignores order', () => {
+  it('keeps the newest run inside the last 24 hours and drops future or old ids', () => {
     expect(instancesUrl('harmonie_dini_sf')).toBe(
       'https://opendataapi.dmi.dk/v1/forecastedr/collections/harmonie_dini_sf/instances',
     );
     expect(
-      latestInstanceRun({
-        instances: [{ id: '2026-11-26T120000Z' }, { id: '2026-11-26T150000Z' }],
-      }),
+      latestInstanceRun(
+        {
+          instances: [
+            { id: '2026-11-26T210000Z' },
+            { id: '2026-11-25T120000Z' },
+            { id: '2026-11-26T120000Z' },
+            { id: '2026-11-26T150000Z' },
+          ],
+        },
+        NOW,
+      ),
     ).toBe('2026-11-26T15:00:00.000Z');
+    expect(
+      latestInstanceRun({ instances: [{ id: '2026-11-27T000000Z' }, { id: '2026-11-25T000000Z' }] }, NOW),
+    ).toBeNull();
   });
 });
 

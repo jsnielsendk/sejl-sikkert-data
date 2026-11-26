@@ -17,6 +17,9 @@ on:
     # one on the pushed commit, so a side branch cannot be the trigger.
     branches: [main]
     paths: ['trigger/build.txt']
+  issues:
+    # An issues event runs the workflow file on the default branch.
+    types: [opened]
 
 permissions:
   contents: read
@@ -27,6 +30,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'issues' || (github.event.issue.title == 'build' && (github.event.issue.user.login == 'jsnielsendk' || github.event.issue.author_association == 'OWNER'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -73,3 +77,29 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  close-issue:
+    needs: [build, deploy]
+    if: always() && github.event_name == 'issues' && github.event.issue.title == 'build' && (github.event.issue.user.login == 'jsnielsendk' || github.event.issue.author_association == 'OWNER')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Comment and close the build issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          BUILD_SKIP: ${{ needs.build.outputs.skip }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+        run: |
+          if [ "$BUILD_RESULT" != "success" ]; then
+            word=failed
+          elif [ "$BUILD_SKIP" = "true" ]; then
+            word=skipped
+          elif [ "$DEPLOY_RESULT" = "success" ]; then
+            word=built
+          else
+            word=failed
+          fi
+          gh issue close "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --comment "$word ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

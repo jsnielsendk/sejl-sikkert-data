@@ -9,7 +9,7 @@ import { appendFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { parseModelRunId } from '../src/app/client.ts';
+import { pickModelRun } from '../src/app/client.ts';
 import {
   FRESH_MS,
   PAGES_MANIFEST_URL,
@@ -69,32 +69,12 @@ function isNewer(dmiIso: string, manifestIso: string | null): boolean {
   return dmiMs > manifestMs;
 }
 
-/** Latest model-run id in an EDR instances document. The first row is not trusted. */
-export function latestInstanceRun(payload: unknown): string | null {
-  const list = Array.isArray(payload)
-    ? payload
-    : payload && typeof payload === 'object' && 'instances' in payload
-      ? (payload as { instances?: unknown }).instances
-      : null;
-  if (!Array.isArray(list)) {
-    return null;
-  }
-  let bestMs = Number.NEGATIVE_INFINITY;
-  let bestIso: string | null = null;
-  for (const item of list) {
-    if (!item || typeof item !== 'object' || !('id' in item) || typeof item.id !== 'string') {
-      continue;
-    }
-    const parsed = parseModelRunId(item.id);
-    if (!parsed) {
-      continue;
-    }
-    if (parsed.getTime() > bestMs) {
-      bestMs = parsed.getTime();
-      bestIso = parsed.toISOString();
-    }
-  }
-  return bestIso;
+/**
+ * Latest model-run id in an EDR instances document.
+ * Uses pickModelRun, so ids in the future or older than 24 hours are ignored.
+ */
+export function latestInstanceRun(payload: unknown, nowMs: number): string | null {
+  return pickModelRun(payload, new Date(nowMs))?.modelRunAt ?? null;
 }
 
 export function decideBuild(input: {
@@ -167,6 +147,24 @@ export function decideBuild(input: {
     };
   }
 
+  if (newer) {
+    if (dmiFailed) {
+      lines.push('::warning::DMI model run unavailable for one model; building on the newer run');
+    }
+    if (stale) {
+      lines.push('::warning::MANIFEST_STALE');
+    }
+    lines.push('::notice::BUILD newer model run');
+    return {
+      build: true,
+      warnFuture: false,
+      warnStale: stale,
+      warnDmi: dmiFailed,
+      reason: 'BUILD newer model run',
+      lines,
+    };
+  }
+
   if (dmiFailed) {
     lines.push('::warning::DMI model run unavailable; using manifest age');
     const build = age.ageMs !== null && age.ageMs >= FRESH_MS;
@@ -180,21 +178,6 @@ export function decideBuild(input: {
       warnStale: stale,
       warnDmi: true,
       reason: `${build ? 'BUILD' : 'SKIP'} dmi unavailable ageMs=${age.ageMs}`,
-      lines,
-    };
-  }
-
-  if (newer) {
-    if (stale) {
-      lines.push('::warning::MANIFEST_STALE');
-    }
-    lines.push('::notice::BUILD newer model run');
-    return {
-      build: true,
-      warnFuture: false,
-      warnStale: stale,
-      warnDmi: false,
-      reason: 'BUILD newer model run',
       lines,
     };
   }
@@ -265,6 +248,7 @@ export async function readPublishedManifest(
 export async function readDmiRun(
   model: DmiModel,
   fetchImpl: typeof fetch = fetch,
+  nowMs: number = Date.now(),
 ): Promise<DmiRun> {
   const url = instancesUrl(model);
   try {
@@ -278,7 +262,7 @@ export async function readDmiRun(
     }
     return {
       model,
-      modelRunAt: latestInstanceRun(JSON.parse(text) as unknown),
+      modelRunAt: latestInstanceRun(JSON.parse(text) as unknown, nowMs),
       bytes: Buffer.byteLength(text),
     };
   } catch {
@@ -309,7 +293,7 @@ export async function reportBuildDecision(input?: {
   const dmi =
     input?.dmi !== undefined
       ? input.dmi
-      : await Promise.all(DMI_MODELS.map((model) => readDmiRun(model, fetchImpl)));
+      : await Promise.all(DMI_MODELS.map((model) => readDmiRun(model, fetchImpl, nowMs)));
   const decision = decideBuild({
     nowMs,
     generatedAt: manifest?.generatedAt ?? null,
