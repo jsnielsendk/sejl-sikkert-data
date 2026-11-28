@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { main } from '../src/cli';
-import { tilesFromConfig } from '../src/config';
+import { MAX_ATTEMPTS, tilesFromConfig } from '../src/config';
 import { jsonResponse } from './support';
 
 const dirs: string[] = [];
@@ -35,6 +35,8 @@ describe('failed build', () => {
     expect(code).not.toBe(0);
     expect(existsSync(path.join(outDir, 'manifest.json'))).toBe(false);
     expect(existsSync(`${path.resolve(outDir)}.partial`)).toBe(false);
-    expect(calls.filter((url) => url.includes('/cube')).length).toBe(3);
+    const cubes = calls.filter((url) => url.includes('/cube')).length;
+    expect(cubes).toBeGreaterThanOrEqual(5);
+    expect(cubes).toBeLessThanOrEqual(MAX_ATTEMPTS);
   });
 });

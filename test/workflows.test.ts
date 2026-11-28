@@ -29,7 +29,14 @@ describe('GitHub workflows', () => {
     expect(text).toMatch(/permissions:[\s\S]*contents: read/);
     expect(text).toContain('pages: write');
     expect(text).toContain('id-token: write');
-    expect(text).toContain('group: pages-data');
+    const jobsAt = text.indexOf('\njobs:');
+    const buildJobAt = text.indexOf('\n  build:');
+    const deployAt = text.indexOf('\n  deploy:');
+    const closeJobAt = text.indexOf('\n  close-issue:');
+    expect(text.slice(0, jobsAt)).not.toContain('pages-data');
+    expect(text.slice(buildJobAt, deployAt)).toContain('group: pages-data');
+    expect(text.slice(deployAt, closeJobAt)).toContain('group: pages-data');
+    expect(text.slice(closeJobAt)).not.toContain('pages-data');
     expect(text).toContain('cancel-in-progress: false');
     expect(text).toContain('timeout-minutes: 30');
     expect(text).toContain('timeout-minutes: 10');

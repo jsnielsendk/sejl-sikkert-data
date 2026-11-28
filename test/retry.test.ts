@@ -6,12 +6,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   MAX_ATTEMPTS,
   MAX_RETRY_AFTER_MS,
+  MAX_RETRY_BUDGET_MS,
   pauseMsFromEnv,
   REQUEST_PAUSE_MS,
-  RETRY_DELAYS_MS,
+  RETRY_BASE_MS,
   tilesFromConfig,
 } from '../src/config';
-import { createSerialClient, fetchJson, type FetchStats } from '../src/dmi/serial';
+import { createSerialClient, fetchJson, retryDelayMs, type FetchStats } from '../src/dmi/serial';
 import { buildDataset } from '../src/pipeline';
 import { coverageBody, jsonResponse } from './support';
 
@@ -31,41 +32,13 @@ describe('request pause', () => {
     expect(pauseMsFromEnv({ DMI_PAUSE_MS: '  ' })).toBe(REQUEST_PAUSE_MS);
     expect(pauseMsFromEnv({ DMI_PAUSE_MS: '4000' })).toBe(4000);
     expect(() => pauseMsFromEnv({ DMI_PAUSE_MS: 'no' })).toThrow(/DMI_PAUSE_MS/);
-    expect(MAX_ATTEMPTS).toBe(3);
+    expect(MAX_ATTEMPTS).toBe(6);
+    expect(MAX_RETRY_BUDGET_MS).toBe(360_000);
   });
 });
 
 describe('DMI retry', () => {
-  it('retries a 429 with backoff and stops after three attempts', async () => {
-    const sleeps: number[] = [];
-    const statuses = [429, 200];
-    const seen = stats();
-    const result = await fetchJson({
-      url: 'https://opendataapi.dmi.dk/v1/forecastedr/collections/harmonie_dini_sf/instances',
-      stats: seen,
-      sleep: async (ms) => {
-        sleeps.push(ms);
-      },
-      http: async () => jsonResponse(statuses.shift() ?? 200, { instances: [] }),
-    });
-    expect(result.status).toBe(200);
-    expect(seen.calls).toBe(2);
-    expect(seen.saw429).toBe(true);
-    expect(sleeps).toEqual([RETRY_DELAYS_MS[0]]);
-
-    const exhausted = stats();
-    const busy = await fetchJson({
-      url: 'https://opendataapi.dmi.dk/example',
-      stats: exhausted,
-      sleep: async (ms) => {
-        sleeps.push(ms);
-      },
-      http: async () => jsonResponse(429, { message: 'busy' }),
-    });
-    expect(busy.status).toBe(429);
-    expect(exhausted.calls).toBe(MAX_ATTEMPTS);
-    expect(sleeps.slice(-2)).toEqual([...RETRY_DELAYS_MS]);
-
+  it('follows Retry-After on 429 and caps a huge value', async () => {
     const waited: number[] = [];
     const hinted = stats();
     const afterHeader = await fetchJson({
@@ -81,7 +54,18 @@ describe('DMI retry', () => {
       }),
     });
     expect(afterHeader.status).toBe(200);
-    expect(waited).toEqual([Math.max(RETRY_DELAYS_MS[0], 30_000)]);
+    expect(hinted.saw429).toBe(true);
+    expect(waited).toEqual([30_000]);
+
+    const now = Date.parse('2026-11-27T22:46:00.000Z');
+    expect(
+      retryDelayMs(
+        0,
+        { get: (name) => (name.toLowerCase() === 'retry-after' ? 'Fri, 27 Nov 2026 22:46:45 GMT' : null) },
+        () => 1,
+        now,
+      ),
+    ).toBe(45_000);
 
     const capped: number[] = [];
     const huge = stats();
@@ -100,6 +84,30 @@ describe('DMI retry', () => {
     expect(afterHugeHeader.status).toBe(200);
     expect(capped).toEqual([MAX_RETRY_AFTER_MS]);
     expect(MAX_RETRY_AFTER_MS).toBe(120_000);
+  });
+
+  it('uses exponential jitter without Retry-After and stops at the budget', async () => {
+    expect(retryDelayMs(0, undefined, () => 0)).toBe(RETRY_BASE_MS / 2);
+    expect(retryDelayMs(0, undefined, () => 1)).toBe(RETRY_BASE_MS);
+    expect(retryDelayMs(3, undefined, () => 1)).toBe(MAX_RETRY_AFTER_MS);
+
+    const sleeps: number[] = [];
+    const seen = stats();
+    const busy = await fetchJson({
+      url: 'https://opendataapi.dmi.dk/example',
+      stats: seen,
+      random: () => 1,
+      sleep: async (ms) => {
+        sleeps.push(ms);
+      },
+      http: async () => jsonResponse(429, { message: 'busy' }),
+    });
+    expect(busy.status).toBe(429);
+    expect(seen.saw429).toBe(true);
+    expect(sleeps).toEqual([20_000, 40_000, 80_000, 120_000]);
+    expect(sleeps.reduce((sum, ms) => sum + ms, 0)).toBeLessThanOrEqual(MAX_RETRY_BUDGET_MS);
+    expect(seen.calls).toBe(sleeps.length + 1);
+    expect(seen.calls).toBeLessThan(MAX_ATTEMPTS);
 
     const server = stats();
     const recovered = await fetchJson({

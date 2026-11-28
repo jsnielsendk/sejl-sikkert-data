@@ -37,25 +37,33 @@ export const DATA_LICENSE = 'CC BY 4.0';
 export const DATA_LICENSE_URL = 'https://creativecommons.org/licenses/by/4.0/';
 
 /**
- * Pause between DMI requests. Retries use a separate backoff.
- * Raise `DMI_PAUSE_MS` when 429s are frequent. Do not raise the attempt cap.
+ * Pause between DMI calls, including each tile cube. Retries use a separate backoff.
+ * Raise `DMI_PAUSE_MS` when 429s are frequent.
  */
 export const REQUEST_PAUSE_MS = 2000;
 
 export const PAUSE_ENV = 'DMI_PAUSE_MS';
 
-/** One try plus retries. A 429 or 5xx is not attempted more than this. */
-export const MAX_ATTEMPTS = 3;
+/**
+ * One try plus retries. A 429 or 5xx stops after this many calls even when
+ * the retry budget still has time left.
+ */
+export const MAX_ATTEMPTS = 6;
 
 /**
- * Backoff after a 429 or 5xx. A short limit at DMI outlasts 1–2 seconds,
- * so the two waits are long enough that the third attempt can succeed.
- * A Retry-After header, when present and longer, replaces the wait, but never past the cap.
+ * First 429 wait when DMI sends no Retry-After. Later waits double until the
+ * single-wait cap. Jitter picks a value from half of that delay up to the full delay.
  */
-export const RETRY_DELAYS_MS = [20_000, 40_000] as const;
+export const RETRY_BASE_MS = 20_000;
 
-/** Upper bound for a single retry wait, including a large Retry-After. */
+/** Upper bound for one retry wait, including a large Retry-After. */
 export const MAX_RETRY_AFTER_MS = 120_000;
+
+/**
+ * Sum of retry waits for a single URL. Stops the loop before one tile can
+ * sit until the 30 minute job timeout.
+ */
+export const MAX_RETRY_BUDGET_MS = 360_000;
 
 export function pauseMsFromEnv(env: NodeJS.ProcessEnv = process.env): number {
   const raw = env[PAUSE_ENV];
