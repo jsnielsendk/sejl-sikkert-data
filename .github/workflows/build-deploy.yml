@@ -24,12 +24,13 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: pages-data
-  cancel-in-progress: false
-
 jobs:
   build:
+    # Only the data jobs share the group. A skipped issue must not cancel a
+    # queued schedule, and close-issue stays outside the group.
+    concurrency:
+      group: pages-data
+      cancel-in-progress: false
     if: github.event_name != 'issues' || (github.event.issue.title == 'build' && (github.event.issue.user.login == 'jsnielsendk' || github.event.issue.author_association == 'OWNER'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -54,7 +55,7 @@ jobs:
         if: steps.freshness.outputs.skip != 'true'
         run: npm run build-data
         env:
-          # Raise this if Actions often gets HTTP 429. Do not raise the attempt cap.
+          # Pause between DMI calls. Retries have their own capped backoff.
           DMI_PAUSE_MS: '2000'
       - if: steps.freshness.outputs.skip != 'true'
         uses: actions/upload-pages-artifact@v5
@@ -63,6 +64,9 @@ jobs:
           include-hidden-files: true
 
   deploy:
+    concurrency:
+      group: pages-data
+      cancel-in-progress: false
     needs: build
     if: needs.build.result == 'success' && needs.build.outputs.skip != 'true'
     runs-on: ubuntu-latest
